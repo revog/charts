@@ -1,0 +1,49 @@
+name: Release Charts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+    paths-ignore:
+      - '.github/**'
+      - '.git*'
+      - 'README.md'
+      - 'renovate.json5?'
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      charts: ${{ steps.detect.outputs.charts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect changed charts
+        id: detect
+        run: |
+          # Find all changed chart directories
+          CHARTS=$(git diff --name-only origin/main HEAD | grep -oP 'charts/\K[^/]+' | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          echo "charts=$CHARTS" >> $GITHUB_OUTPUT
+
+  release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Release Helm chart
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
